@@ -10,15 +10,53 @@ description: >
 
 # Google Ads Deep Analysis
 
+## Data Collection
+
+**If Google Ads MCP tools are available** (check for `mcp__google-ads__get_campaign_performance` or similar), pull data automatically using the MCP. Do NOT ask the user to paste exports. The customer_id is in the client CLAUDE.md under Accounts > Google Ads.
+
+Pull this data via MCP (run these in parallel where possible):
+
+| MCP Tool | Parameters | What it provides |
+|---|---|---|
+| `get_campaign_performance` | customer_id, days: 30 | Campaign-level metrics (clicks, conversions, cost, CPA, impressions) |
+| `get_ad_performance` | customer_id, days: 30 | Ad-level metrics (RSA performance, ad strength proxy) |
+| `get_ad_creatives` | customer_id | Headlines, descriptions, URLs, ad structure |
+| `execute_gaql_query` | customer_id, query (see below) | Keywords, search terms, Quality Score, settings |
+| `analyze_image_assets` | customer_id, days: 30 | Image asset performance |
+
+**GAQL queries to run** (via `execute_gaql_query` or `run_gaql`):
+
+```sql
+-- Keywords with Quality Score
+SELECT campaign.name, ad_group.name, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.quality_info.quality_score, metrics.clicks, metrics.impressions, metrics.ctr, metrics.average_cpc, metrics.conversions, metrics.cost_micros FROM keyword_view WHERE segments.date DURING LAST_30_DAYS AND ad_group_criterion.status = 'ENABLED' ORDER BY metrics.cost_micros DESC LIMIT 100
+
+-- Search Terms Report
+SELECT search_term_view.search_term, campaign.name, metrics.clicks, metrics.impressions, metrics.conversions, metrics.cost_micros FROM search_term_view WHERE segments.date DURING LAST_30_DAYS ORDER BY metrics.cost_micros DESC LIMIT 200
+
+-- Campaign settings (bid strategy, networks, location targeting)
+SELECT campaign.name, campaign.status, campaign.bidding_strategy_type, campaign.advertising_channel_type, campaign.target_cpa.target_cpa_micros, campaign.target_roas.target_roas, campaign.network_settings.target_search_network, campaign.network_settings.target_content_network, campaign.geo_target_type_setting.positive_geo_target_type FROM campaign WHERE campaign.status = 'ENABLED'
+
+-- Ad extensions
+SELECT campaign.name, asset.type, asset.name FROM campaign_asset WHERE campaign.status = 'ENABLED'
+
+-- Negative keywords
+SELECT campaign.name, campaign_criterion.keyword.text, campaign_criterion.keyword.match_type FROM campaign_criterion WHERE campaign_criterion.type = 'KEYWORD' AND campaign_criterion.negative = TRUE
+```
+
+**After pulling data**, save the raw data to `reports/YYYY-MM-DD-google-ads-audit/raw-data/` in the current directory before running the audit. This creates a dated snapshot.
+
+**If MCP is NOT available**, fall back to asking the user to paste or upload Google Ads exports.
+
 ## Process
 
-1. Collect Google Ads account data (export, Change History, Search Terms Report)
-2. Read `ads/references/google-audit.md` for full 74-check audit
-3. Read `ads/references/benchmarks.md` for Google-specific benchmarks
-4. Read `ads/references/scoring-system.md` for weighted scoring
-5. Evaluate all applicable checks as PASS, WARNING, or FAIL
-6. Calculate Google Ads Health Score (0-100)
-7. Generate findings report with action plan
+1. Pull data via MCP (or collect from user if MCP unavailable)
+2. Save raw data to `reports/YYYY-MM-DD-google-ads-audit/raw-data/`
+3. Read `ads/references/google-audit.md` for full 74-check audit
+4. Read `ads/references/benchmarks.md` for Google-specific benchmarks
+5. Read `ads/references/scoring-system.md` for weighted scoring
+6. Evaluate all applicable checks as PASS, WARNING, or FAIL
+7. Calculate Google Ads Health Score (0-100)
+8. Save report to `reports/YYYY-MM-DD-google-ads-audit/GOOGLE-ADS-REPORT.md`
 
 ## What to Analyze
 
@@ -129,7 +167,11 @@ Settings:            XX/100  ██████████  (10%)
 ```
 
 ### Deliverables
+
+Save all output to `reports/YYYY-MM-DD-google-ads-audit/` in the current working directory:
+
 - `GOOGLE-ADS-REPORT.md` — Full 74-check findings with pass/warning/fail
+- `raw-data/` — Raw MCP data pulls (campaign performance, keywords, search terms, etc.)
 - Wasted spend estimate (monthly $ value)
 - Quick Wins sorted by impact
 - PMax-specific recommendations (if applicable)
