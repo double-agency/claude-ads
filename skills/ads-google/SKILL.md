@@ -12,9 +12,26 @@ description: >
 
 ## Data Collection
 
-**If Google Ads MCP tools are available** (check for `mcp__google-ads__get_campaign_performance` or similar), pull data automatically using the MCP. Do NOT ask the user to paste exports. The customer_id is in the client CLAUDE.md under Accounts > Google Ads.
+**If Google Ads MCP tools are available** (check for `mcp__google-ads-mcp__search` or `mcp__google-ads__get_campaign_performance`), pull data automatically using the MCP. Do NOT ask the user to paste exports. The customer_id is in the client CLAUDE.md under Accounts > Google Ads.
 
-Pull this data via MCP (run these in parallel where possible):
+### Official Google Ads MCP (preferred)
+
+If using the official `google-ads-mcp` server (tools: `search`, `list_accessible_customers`), use the `search` tool with GAQL-style parameters:
+
+| Parameter | Description |
+|---|---|
+| `customer_id` | Account ID without hyphens (e.g. "2791539095") |
+| `resource` | The GAQL resource (e.g. "keyword_view", "campaign", "search_term_view") |
+| `fields` | List of fields to select |
+| `conditions` | List of WHERE conditions |
+| `orderings` | List of ORDER BY fields |
+| `limit` | Max rows to return |
+
+Run the GAQL queries below using the `search` tool. Each query maps to a `resource` + `fields` + `conditions` call.
+
+### Legacy MCP (cohnen/mcp-google-ads)
+
+If using the legacy MCP, pull data via these tools (run in parallel where possible):
 
 | MCP Tool | Parameters | What it provides |
 |---|---|---|
@@ -24,7 +41,7 @@ Pull this data via MCP (run these in parallel where possible):
 | `execute_gaql_query` | customer_id, query (see below) | Keywords, search terms, Quality Score, settings |
 | `analyze_image_assets` | customer_id, days: 30 | Image asset performance |
 
-**GAQL queries to run** (via `execute_gaql_query` or `run_gaql`):
+**GAQL queries to run** (via `search` tool, `execute_gaql_query`, or `run_gaql`):
 
 ```sql
 -- Keywords with Quality Score
